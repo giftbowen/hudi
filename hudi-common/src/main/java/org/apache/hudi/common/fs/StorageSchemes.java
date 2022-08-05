@@ -72,7 +72,8 @@ public enum StorageSchemes {
   OCI("oci", false);
 
   private String scheme;
-  private boolean supportsAppend;
+  private boolean supportsAppend = false;
+  private boolean isWriteAtomic;
 
   StorageSchemes(String scheme, boolean supportsAppend) {
     this.scheme = scheme;
@@ -97,4 +98,16 @@ public enum StorageSchemes {
     }
     return Arrays.stream(StorageSchemes.values()).anyMatch(s -> s.supportsAppend() && s.scheme.equals(scheme));
   }
+
+  public static boolean isWriteAtomic(String scheme) {
+    if (!isSchemeSupported(scheme)) {
+      throw new IllegalArgumentException("Unsupported scheme :" + scheme);
+    }
+
+    if (scheme == "file") {
+      return true;
+    }
+    return false;
+  }
+
 }

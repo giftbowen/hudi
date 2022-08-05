@@ -20,6 +20,7 @@ package org.apache.hudi.common.table.log;
 
 import org.apache.hudi.common.fs.FSUtils;
 import org.apache.hudi.common.fs.SchemeAwareFSDataInputStream;
+import org.apache.hudi.common.fs.StorageSchemes;
 import org.apache.hudi.common.fs.TimedFSDataInputStream;
 import org.apache.hudi.common.model.HoodieLogFile;
 import org.apache.hudi.common.model.HoodieRecord;
@@ -71,6 +72,7 @@ public class HoodieLogFileReader implements HoodieLogFormat.Reader {
   private static final int BLOCK_SCAN_READ_BUFFER_SIZE = 1024 * 1024; // 1 MB
   private static final Logger LOG = LogManager.getLogger(HoodieLogFileReader.class);
 
+  private  final FileSystem fs;
   private final Configuration hadoopConf;
   private final FSDataInputStream inputStream;
   private final HoodieLogFile logFile;
@@ -106,6 +108,7 @@ public class HoodieLogFileReader implements HoodieLogFormat.Reader {
   public HoodieLogFileReader(FileSystem fs, HoodieLogFile logFile, Schema readerSchema, int bufferSize,
                              boolean readBlockLazily, boolean reverseReader, boolean enableRecordLookups,
                              String keyField, InternalSchema internalSchema) throws IOException {
+    this.fs = fs;
     this.hadoopConf = fs.getConf();
     // NOTE: We repackage {@code HoodieLogFile} here to make sure that the provided path
     //       is prefixed with an appropriate scheme given that we're not propagating the FS
@@ -158,12 +161,17 @@ public class HoodieLogFileReader implements HoodieLogFormat.Reader {
       return createCorruptBlock();
     }
 
-    // We may have had a crash which could have written this block partially
-    // Skip blockSize in the stream and we should either find a sync marker (start of the next
-    // block) or EOF. If we did not find either of it, then this block is a corrupted block.
-    boolean isCorrupted = isBlockCorrupted(blockSize);
-    if (isCorrupted) {
-      return createCorruptBlock();
+    // Block is possibly corrupted only when write is not atomic
+    // the corrupted check could take 100's msec for larger file sizes, skipping the check for fs with atomic write
+    // see https://issues.apache.org/jira/browse/HUDI-2118
+    if (!StorageSchemes.isAppendSupported(fs.getScheme())) {
+      // We may have had a crash which could have written this block partially
+      // Skip blockSize in the stream and we should either find a sync marker (start of the next
+      // block) or EOF. If we did not find either of it, then this block is a corrupted block.
+      boolean isCorrupted = isBlockCorrupted(blockSize);
+      if (isCorrupted) {
+        return createCorruptBlock();
+      }
     }
 
     // 2. Read the version for this log format
