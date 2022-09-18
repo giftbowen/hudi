@@ -164,7 +164,7 @@ public class HoodieLogFileReader implements HoodieLogFormat.Reader {
     // Block is possibly corrupted only when write is not atomic
     // the corrupted check could take 100's msec for larger file sizes, skipping the check for fs with atomic write
     // see https://issues.apache.org/jira/browse/HUDI-2118
-    if (!StorageSchemes.isAppendSupported(fs.getScheme())) {
+    if (!StorageSchemes.isWriteAtomic(fs.getScheme())) {
       // We may have had a crash which could have written this block partially
       // Skip blockSize in the stream and we should either find a sync marker (start of the next
       // block) or EOF. If we did not find either of it, then this block is a corrupted block.

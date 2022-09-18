@@ -104,9 +104,9 @@ public enum StorageSchemes {
       throw new IllegalArgumentException("Unsupported scheme :" + scheme);
     }
 
-    if (scheme == "file") {
-      return true;
-    }
+    //    if (scheme == "file") {
+    //      return true;
+    //    }
     return false;
   }
 
